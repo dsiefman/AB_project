@@ -219,22 +219,21 @@ def LorentzFindPeak(x, y):
     fwhm_data = re.search('fwhm'+ numberRegEx, fit_report)
 
     # Get the value and its unc (1 absolute std), convert to float
-    center = [float(x) for x in center_data.groups()]
-    height = [float(x) for x in height_data.groups()]
-    fwhm = [float(x) for x in fwhm_data.groups()]
+    centers = [float(x) for x in center_data.groups()]
+    heights = [float(x) for x in height_data.groups()]
+    fwhms = [float(x) for x in fwhm_data.groups()]
 
     # Correct center data back to wavelength
-    center[0] = 1240/center[0]
-    center[1] = 1240*center[1]  # error propagation for exponent: x^-1 = x
+    centers[0] = 1240/centers[0]
+    centers[1] = 1240*centers[1]  # error propagation for exponent: x^-1 = x
 
-    return center, height, fwhm
+    return centers, heights, fwhms
 
 ###############################################################################
 
-def plot_samp_file(samp_file, TC):
+def fit_samp_file(x, frames):
 
-	[x, frames]  = get_frames(samp_file, TC)
-
+	
 	# Indices where peak ranges are in data
 	# For 1025nm-1070nm (7,5)
 	# peak1 = [78, 167]   # 1010.932479 nm & 1080.945846 nm
@@ -263,36 +262,141 @@ def plot_samp_file(samp_file, TC):
 	        heights[iFrame,:],
 	        fwhms[iFrame,:]] = LorentzFindPeak(x_peak, y)
 
-	    # Plot the heights and centers (wavelength)
-	    print('\t\tPLOTTING PEAK NUMBER ' + str(iPeak + 1))
-	    fig, ax1 = plt.subplots()
-
-	    t = np.arange(0, 10*len(frames), 10)
-	    y_height = heights[:, 0]/heights[0, 0]
-	    y_height_unc = heights[:, 1]/heights[0, 0]
-	    ax1.plot(t, y_height, 'b-')
-	    ax1.fill_between(t, y_height-y_height_unc, y_height+y_height_unc, color='b', alpha=0.5)
-	    ax1.set_xlabel('time (s)')
-	    # Make the y-axis label, ticks and tick labels match the line color.
-	    ax1.set_ylabel('Normalised Intensity', color='b')
-	    # ax1.ticklabel_format(style='sci')
-	    ax1.tick_params('y', colors='b')
-
-
-	    ax2 = ax1.twinx()
-	    y_center = centers[:, 0] 
-	    y_center_unc =  centers[:, 1] 
-
-	    ax2.plot(t, y_center, 'r--')
-	    ax2.fill_between(t, y_center-y_center_unc, y_center+y_center_unc, color='r', alpha=0.5)
-	    ax2.set_ylabel('Peak Wavelength Postion (nm)', color='r')
-	    ax2.tick_params('y', colors='r')   
-	    ax2.set_ylim([995, 1003])
-
-	    fig.tight_layout()
-	    plot_name = samp_file[0:-4] + str(iPeak) + '.pdf'
-	    plt.savefig(plot_name)
-
-	    plt.close()
-
 	completed(tic)
+
+	return heights, centers
+
+###############################################################################
+
+
+def plot_peak_2yaxis(centers, heights, output):
+
+
+	'''
+	Plot the intesity shift and wavelength shift of each frame
+	relative to the first frame. Plotted on two y-axes with uncertainty
+
+
+	'''
+
+	# Plot the heights and centers (wavelength)
+	fig, ax1 = plt.subplots()
+
+	t = np.arange(0, 10*centers.shape[0], 10)
+	y_height = heights[:, 0]/heights[0, 0]
+	y_height_unc = heights[:, 1]/heights[0, 0]
+
+	# Plot intensity shift of left y-axis
+	ax1.plot(t, y_height, 'b-')
+	ax1.fill_between(t, y_height-y_height_unc, y_height+y_height_unc,
+					 color='b', alpha=0.5)
+	ax1.set_xlabel('time (s)')
+    # Make the y-axis label, ticks and tick labels match the line color.
+	ax1.set_ylabel('Normalised Intensity', color='b')
+	ax1.tick_params('y', colors='b', direction='in')
+
+	ax1.tick_params('x', direction='in')
+
+	# Plot wavelength shift on right y-axis
+	y_center = centers[:, 0] 
+	y_center_unc =  centers[:, 1] 
+
+	ax2 = ax1.twinx()
+	ax2.plot(t, y_center, 'r--')
+	ax2.fill_between(t, y_center-y_center_unc, y_center+y_center_unc,
+					 color='r', alpha=0.5)
+	ax2.set_ylabel('Peak Wavelength Postion (nm)', color='r')
+	ax2.tick_params('y', colors='r', direction='in')   
+	ax2.set_ylim([995, 1003])
+
+	fig.tight_layout()
+	plt.savefig(output[:-4] + '.pdf')
+
+	plt.close()
+
+
+###############################################################################
+
+
+def plot_peak_1yaxis(centers, heights, output):
+
+
+	'''
+	Plot the intesity shift and wavelength shift of each frame
+	relative to the first frame. Plotted on two y-axes with uncertainty
+
+
+	'''
+
+	# Plot the heights (intensity relative to first frame)
+	t = np.arange(0, 10*centers.shape[0], 10)
+	y_height = heights[:, 0]/heights[0, 0]
+	y_height_unc = heights[:, 1]/heights[0, 0]
+
+	plt.plot(t, y_height, 'b-')
+	plt.fill_between(t, y_height-y_height_unc, y_height+y_height_unc,
+					 color='b', alpha=0.5)
+	plt.xlabel('time (s)')
+	plt.ylabel('Normalised Intensity')
+	plt.tick_params('y', direction='in')
+	plt.tick_params('x', direction='in')
+
+	plt.tight_layout()
+	plt.savefig(output[:-4] + '_INTENSITY.pdf')
+	plt.close()
+
+	# Plot centers (wavelength shift)
+	y_center = centers[:, 0] 
+	y_center_unc =  centers[:, 1] 
+
+	plt.plot(t, y_center, 'r--')
+	plt.fill_between(t, y_center-y_center_unc, y_center+y_center_unc,
+					 color='r', alpha=0.5)
+	plt.xlabel('time (s)')
+	plt.ylabel('Peak Wavelength Postion (nm)')
+	plt.tick_params('y', direction='in')   
+	plt.ylim([995, 1003])
+	plt.tick_params('x', direction='in')
+
+	plt.tight_layout()
+	plt.savefig(output[:-4] + '_WAVELENGTH.pdf')
+	plt.close()
+
+
+###############################################################################
+
+
+def print_frame_data(centers, heights, samp_file):
+
+
+	'''
+	Print the intensity, its unc, the wavelength, and its unc of
+	the photopeak at each frame
+	'''
+
+	# Write intensity and wavelength of peak maxes for each frame
+	frame_data = open(samp_file[:-4] + '_FrameData.txt', 'w')
+
+	frame_data.write('DATA FOR %s\n\n' % samp_file)
+
+	frame_data.write('{0:6s}{1:>15s}{2:>15s}{3:>15s}{4:>15s}\n'.format(
+		     'Frame', 'I_max', 'I_max_unc', 'lambda', 'lambda_unc'))
+	# First frame
+	frame_data.write('{0:6s}{1:>15.4e}{2:>15.4e}{3:>15.4e}{4:>15.4e}\n'.format(
+					  "First", heights[0, 0], heights[0, -1],
+					  centers[0, 0], centers[0, -1]))
+	# Last Frame
+	frame_data.write('{0:6s}{1:>15.4e}{2:>15.4e}{3:>15.4e}{4:>15.4e}\n\n'.format(
+					  "Last", heights[-1, 0], heights[-1, -1],
+					  centers[-1, 0], centers[-1, -1]))
+
+	frame_data.write("DATA FOR ALL FRAMES:\n")
+
+	frame_data.write('{0:6s}{1:>15s}{2:>15s}{3:>15s}{4:>15s}\n'.format(
+		     'Frame', 'I_max', 'I_max_unc', 'lambda', 'lambda_unc'))
+	for iFrame in range(centers.shape[0]):
+		frame_data.write('{0:6n}{1:>15.4e}{2:>15.4e}{3:>15.4e}{4:>15.4e}\n'.format(
+						  iFrame, heights[iFrame, 0], heights[iFrame, -1],
+						  centers[iFrame, 0], centers[iFrame, -1]))
+	frame_data.close()
+
