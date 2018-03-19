@@ -9,7 +9,7 @@ import get_frames
 TC = None # 'plastic'
 separate = False
 
-samp_dir = '/home/siefman/AB_project/to_plot'
+samp_dir = '/home/siefman/AB_project/new_range'
 files_to_plot = os.listdir(samp_dir)
 
 # samp_file = 'Gel1_GT15NH2_SeroRoth_100mM_10ul_2018-02-12.csv'

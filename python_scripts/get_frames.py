@@ -39,7 +39,7 @@ def get_frames(samp_file, TC='plastic', smooth_flag=True, grating=600):
 							 Default is true, or to smooth
 		-grating [integer]: grating type, sets x-axis bins. Default is 600
 
-	OUTPUTS:
+	OUTPUTS:	
 		-x_axis [numpy vector]: x-axis (wavelength) values corresponding to intensity data
 		-frames [list of numpy arrays]: List where each element is a frame's intensity data
 	'''
@@ -51,7 +51,7 @@ def get_frames(samp_file, TC='plastic', smooth_flag=True, grating=600):
 	# Open .csv file, load into array
 	try:
 		csv_data = np.genfromtxt(samp_file, delimiter=',')
-		# Delete first 64 cols,  only wavelengths 950 - 1400nm are included
+		# Delete first 64 cols,  only wavelengths afger 950nm are included
 		if grating == 75:
 			csv_data = np.delete(csv_data, range(64), 1)
 	except IOError as e:
@@ -147,6 +147,15 @@ def FindPeak(x_axis, frames, peak):
 	'''
 	Find maximums in the y-data for specific photopeaks from smoothed data
 	Return the maximums of the peak for each frame
+	# Indices where peak ranges are in data
+	# For 1025nm-1070nm (7,5)
+	# peak1 = [78, 167]   # 1010.932479 nm & 1080.945846 nm
+	# # For 1110-1180nm (7,6)
+	# peak2 = [190, 358]   # 1099.010867 nm & 1230.599802 nm
+	# # For 1250nm-1325nm (9,5)
+	# peak3 = [384, 480]   # 1250.906117 nm & 1325.742885 nm
+	# peaks = [peak1, peak2, peak3]
+	peaks = [[320, 460]]  #986.4993 1002.5 nm (6,5 peak)
 
 	INPUTS:
 		-x_axis [numpy array]: x-axis data for plots (wavelengths in nm)
@@ -208,7 +217,6 @@ def LorentzFindPeak(x, y):
     # plt.close()
 
     fit_report = result.fit_report()
-
     # Extract data with regular expressions
     # First make regex to extract numbers after string
     numberRegEx = ':\W+([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)\W+\+\/-\W+([-+]?[0-9]*\.?[0-9]+(?:[eE][-+]?[0-9]+)?)'   # Match any number
@@ -231,10 +239,11 @@ def LorentzFindPeak(x, y):
 
 ###############################################################################
 
-def fit_samp_file(x, frames):
+def fit_samp_file(x, frames, grating=600):
 
 	
 	# Indices where peak ranges are in data
+	# Options if in future we want multiple peaks
 	# For 1025nm-1070nm (7,5)
 	# peak1 = [78, 167]   # 1010.932479 nm & 1080.945846 nm
 	# # For 1110-1180nm (7,6)
@@ -242,7 +251,17 @@ def fit_samp_file(x, frames):
 	# # For 1250nm-1325nm (9,5)
 	# peak3 = [384, 480]   # 1250.906117 nm & 1325.742885 nm
 	# peaks = [peak1, peak2, peak3]
-	peaks = [[320, 460]]  #986.4993 1002.5 nm (6,5 peak)
+
+	# For 600 grating at 950-1050nm (6,5 peak)
+	if grating == 600:
+		peaks = [[320, 460]]
+	# For 75 grating at 950-1050nm (6,5 peak)
+	elif grating == 75:
+		peaks = [[0, 128]]
+	else:
+		print('\n\tERROR: GRATING %i NOT RECOGNIZED' % grating)
+		print('\tONLY 600 or 75 CURRENTLY ALLOWED')
+		raise
 
 	# For each frame, fit each of its peaks and get the 
 	# peak's data (center, height, fwhm)
@@ -258,8 +277,8 @@ def fit_samp_file(x, frames):
 	        # cause modifications to data
 	        y = np.copy(frame[peak[0]:peak[1]])
 	        x_peak = np.copy(x[peak[0]:peak[1]])
-	        [centers[iFrame,:],
-	        heights[iFrame,:],
+	        [centers[iFrame,:],  # center wavelength and unc
+	        heights[iFrame,:],   # center intensity and unc
 	        fwhms[iFrame,:]] = LorentzFindPeak(x_peak, y)
 
 	completed(tic)
@@ -274,9 +293,7 @@ def plot_peak_2yaxis(centers, heights, output):
 
 	'''
 	Plot the intesity shift and wavelength shift of each frame
-	relative to the first frame. Plotted on two y-axes with uncertainty
-
-
+	relative to the first frame. Plotted on two y-axes with uncertainty band.
 	'''
 
 	# Plot the heights and centers (wavelength)
